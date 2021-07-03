@@ -13,6 +13,8 @@ It requires either Showkontrol / Beatkontrol (https://www.tc-supply.com/home) to
 - [ ] Other request packets like Beat Grid, Wave Form
 - [ ] Control capabilities (like stopping layers) from TCNet
 
+**This has only been tested against the Bridge software with NO DJMs or CDJs attached. Bascially this is an implementation solely on the protocol documentation. Testing on real equipment is needed.**
+
 ## Example
 ```typescript
 import { TCNetConfiguration, PioneerDJTCClient, LayerIndex } from "node-tcnet"
