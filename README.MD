@@ -21,7 +21,10 @@ import { TCNetConfiguration, PioneerDJTCClient, LayerIndex } from "node-tcnet"
 
 const config = new TCNetConfiguration();
 
+// Linux
 config.broadcastInterface = "eth0";
+// Windows - at least for a locally running PRO DJ LINK BRIDGE
+config.broadcastAddress = "0.0.0.0";
 
 const client = new PioneerDJTCClient(config);
 
