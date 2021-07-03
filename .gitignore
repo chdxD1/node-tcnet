@@ -1,0 +1,26 @@
+# node dependencies
+node_modules/
+
+# compiled js files
+*.js
+
+# generated mapping files
+*.js.map
+
+# generated type definitions
+*.d.ts
+
+# Editor configuration
+.idea/
+.vscode/*
+
+# Launch configurations and settings
+!/.vscode/launch.json
+!/.vscode/settings.json
+
+# Configuration of prettier and ESLint
+!.eslintrc.js
+!.prettierrc.js
+
+# Documentation
+docs/
