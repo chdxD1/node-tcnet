@@ -4,6 +4,9 @@
     "description": "Implements the TC-Supply TCNet protocol used by ShowKontrol and ProDJLink Bridge app from Pioneer",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
+    "homepage": "https://github.com/chdxD1/node-tcnet#readme",
+    "license": "MIT",
+    "repository": "github:chdxD1/node-tcnet",
     "files": [
         "/dist"
     ],
