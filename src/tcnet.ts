@@ -47,16 +47,33 @@ export class TCNetClient extends EventEmitter {
     }
 
     /**
+     * Wrapper method to bind a socket with a Promise
+     * @param socket socket to bind
+     * @param port port to bind to
+     * @param address address to bind to
+     * @returns Promise which always resolves (no errors in callback)
+     */
+    private bindSocket(socket: Socket, port: number, address: string): Promise<void> {
+        return new Promise((resolve, reject) => {
+            socket.once('error', reject);
+
+            socket.bind(port, address, () => {
+                socket.removeListener('error', reject);
+                resolve();
+            });
+        });
+    }
+
+    /**
      * Connect to the TCNet networks
      */
-    public connect(): void {
+    public async connect(): Promise<void> {
         this.broadcastSocket = createSocket({ type: "udp4", reuseAddr: true }, this.receiveBroadcast.bind(this));
-        this.broadcastSocket.bind(TCNET_BROADCAST_PORT, this.config.broadcastAddress, () =>
-            this.broadcastSocket.setBroadcast(true),
-        );
+        await this.bindSocket(this.broadcastSocket, TCNET_BROADCAST_PORT, this.config.broadcastAddress);
+        this.broadcastSocket.setBroadcast(true);
 
         this.unicastSocket = createSocket({ type: "udp4", reuseAddr: false }, this.receiveUnicast.bind(this));
-        this.unicastSocket.bind(this.config.unicastPort, "0.0.0.0");
+        await this.bindSocket(this.unicastSocket, this.config.unicastPort, "0.0.0.0");
 
         this.announceApp();
         this.announcementInterval = setInterval(this.announceApp.bind(this), 1000);
