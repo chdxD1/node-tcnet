@@ -75,7 +75,7 @@ export class TCNetClient extends EventEmitter {
         this.unicastSocket = createSocket({ type: "udp4", reuseAddr: false }, this.receiveUnicast.bind(this));
         await this.bindSocket(this.unicastSocket, this.config.unicastPort, "0.0.0.0");
 
-        this.announceApp();
+        await this.announceApp();
         this.announcementInterval = setInterval(this.announceApp.bind(this), 1000);
     }
 
@@ -281,7 +281,10 @@ export class TCNetClient extends EventEmitter {
                 }
             }, this.config.requestTimeout);
 
-            this.sendServer(request);
+            this.sendServer(request).catch((err) => {
+                this.requests.delete(`${dataType}-${layer}`);
+                reject(err);
+            });
         });
     }
 }

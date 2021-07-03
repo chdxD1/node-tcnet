@@ -28,9 +28,9 @@ export class PioneerDJTCClient extends EventEmitter {
     /**
      * Connect to the TCNet network
      */
-    connect(): void {
+    async connect(): Promise<void> {
         this.tcnet.on("broadcast", this.receiveBroadcast.bind(this));
-        this.tcnet.connect();
+        await this.tcnet.connect();
     }
 
     /**
