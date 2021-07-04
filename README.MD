@@ -45,7 +45,7 @@ client.connect();
 Instead of `config.broadcastInterface` the address should be set. Windows works a bit different here with Broadcast.. Please set `config.broadcastAddress = 0.0.0.0`.
 
 ## Comparable work
-- Directly implementing ProDJLink: Implements the native protocol of Pioneer DJ players/mixers by emulating a CDJ in the network. This has the downside of occupying one of the 4 (newer: 6) slots and there is the small possibility to crash the players.
+- Directly implementing ProDJLink: Implements the native protocol of Pioneer DJ players/mixers by emulating a CDJ in the network. This has the downside of trying to reverse-engineer an unknown protocol from Pioneer, with no documentation. However these libraries have some better support for other devices like the XDJ-XZ. Using TCNet has the benefit of a clear seperation between the productive Pro DJ Link network and a documented protocol.
   1. prolink-connect (JS) by @EvanPurkhiser https://github.com/EvanPurkhiser/prolink-connect
   2. dysentery (Java) by @Deep-Symmetry https://github.com/Deep-Symmetry/dysentery
 
