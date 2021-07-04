@@ -30,6 +30,8 @@ export class TCNetClient extends EventEmitter {
     private server: RemoteInfo | null;
     private seq = 0;
     private uptime = 0;
+    private connected = false;
+    private connectedHandler: (() => void) | null = null;
     private requests: Map<string, STORED_RESOLVE> = new Map();
     private announcementInterval: NodeJS.Timeout;
 
@@ -77,6 +79,8 @@ export class TCNetClient extends EventEmitter {
 
         await this.announceApp();
         this.announcementInterval = setInterval(this.announceApp.bind(this), 1000);
+
+        await this.waitConnected();
     }
 
     /**
@@ -87,6 +91,23 @@ export class TCNetClient extends EventEmitter {
         this.broadcastSocket.close();
         this.unicastSocket.close();
         this.removeAllListeners();
+        this.connected = false;
+    }
+
+    /**
+     * Waiting for unicast from a master
+     */
+    private waitConnected(): Promise<void> {
+        return new Promise((resolve, reject) => {
+            this.connectedHandler = resolve;
+
+            setTimeout(() => {
+                if (!this.connected) {
+                    this.disconnect();
+                    reject(new Error("Timeout connecting to network"));
+                }
+            }, this.config.requestTimeout);
+        });
     }
 
     /**
@@ -118,11 +139,7 @@ export class TCNetClient extends EventEmitter {
 
             // We received an OptIn packet from a server
             if (mgmtHeader.nodeType == nw.NodeType.Master) {
-                if (packet instanceof nw.TCNetOptInPacket) {
-                    if (this.config.debug) console.log("Received optin from current Master");
-                    this.server = rinfo;
-                    this.server.port = packet.nodeListenerPort;
-                } else if (packet instanceof nw.TCNetOptOutPacket) {
+                if (packet instanceof nw.TCNetOptOutPacket) {
                     if (this.config.debug) console.log("Received optout from current Master");
                     if (this.server?.address == rinfo.address && this.server?.port == packet.nodeListenerPort) {
                         this.server = null;
@@ -130,7 +147,9 @@ export class TCNetClient extends EventEmitter {
                 }
             }
 
-            this.emit("broadcast", packet);
+            if (this.connected) {
+                this.emit("broadcast", packet);
+            }
         }
     }
 
@@ -140,7 +159,7 @@ export class TCNetClient extends EventEmitter {
      * @param msg datagram buffer
      * @param rinfo remoteinfo
      */
-    private receiveUnicast(msg: Buffer, _rinfo: RemoteInfo): void {
+    private receiveUnicast(msg: Buffer, rinfo: RemoteInfo): void {
         const mgmtHeader = new nw.TCNetManagementHeader(msg);
         mgmtHeader.read();
 
@@ -166,6 +185,24 @@ export class TCNetClient extends EventEmitter {
                 const pendingRequest = this.requests.get(`${dataPacket.dataType}-${dataPacket.layer}`);
                 if (pendingRequest) {
                     pendingRequest(dataPacket);
+                }
+            }
+        } else if (mgmtHeader.messageType == nw.TCNetMessageType.OptIn) {
+            // Received OptIn directly via Unicast --> we are registered at the destination now.
+            const packet = new nw.TCNetOptInPacket();
+            packet.buffer = msg;
+            packet.header = mgmtHeader;
+            packet.read();
+
+            // Received OptIn from Master --> registered at Pro DJ Link Bridge or comparable tool
+            if (mgmtHeader.nodeType == nw.NodeType.Master) {
+                this.server = rinfo;
+                this.server.port = packet.nodeListenerPort;
+                if (this.connectedHandler) {
+                    this.connected = true;
+
+                    this.connectedHandler();
+                    this.connectedHandler = null;
                 }
             }
         } else {
