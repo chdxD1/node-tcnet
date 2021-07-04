@@ -9,7 +9,9 @@ It requires either Showkontrol / Beatkontrol (https://www.tc-supply.com/home) to
 - [x] Connecting to a TCNet network
 - [x] Listening to status events
 - [x] Requesting song metadata of layers seperately
-- [ ] Timestamp / Timesync / BPM capabilities of TCNet
+- [x] Requesting song metrics of layers
+- [x] Receiving Timestamp information
+- [ ] Time Sync (similar to NTP/PTP) / BPM capabilities of TCNet
 - [ ] Other request packets like Beat Grid, Wave Form
 - [ ] Control capabilities (like stopping layers) from TCNet
 

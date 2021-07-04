@@ -243,8 +243,62 @@ export class TCNetRequestPacket extends TCNetPacket {
     }
 }
 
+export enum TCNetTimecodeState {
+    Stopped = 0,
+    Running = 1,
+    ForceReSync = 2,
+}
+
+export class TCNetTimecode {
+    mode: number;
+    state: TCNetTimecodeState;
+    hours: number;
+    minutes: number;
+    seconds: number;
+    frames: number;
+
+    read(buffer: Buffer, offset: number): void {
+        this.mode = buffer.readUInt8(offset + 0);
+        this.state = buffer.readUInt8(offset + 1);
+        this.hours = buffer.readUInt8(offset + 2);
+        this.minutes = buffer.readUInt8(offset + 3);
+        this.seconds = buffer.readUInt8(offset + 4);
+        this.frames = buffer.readUInt8(offset + 5);
+    }
+}
+
+export class TCNetTimePacket extends TCNetPacket {
+    layerCurrentTime: number[] = new Array(8);
+    layerTotalTime: number[] = new Array(8);
+    layerBeatmarker: number[] = new Array(8);
+    layerState: TCNetLayerStatus[] = new Array(8);
+    generalSMPTEMode: number;
+    layerTimecode: TCNetTimecode[] = new Array(8);
+
+    read(): void {
+        for (let n = 0; n < 8; n++) {
+            this.layerCurrentTime[n] = this.buffer.readUInt32LE(24 + n * 4);
+            this.layerTotalTime[n] = this.buffer.readUInt32LE(56 + n * 4);
+            this.layerBeatmarker[n] = this.buffer.readUInt8(88 + n);
+            this.layerState[n] = this.buffer.readUInt8(96 + n);
+            this.layerTimecode[n] = new TCNetTimecode();
+            this.layerTimecode[n].read(this.buffer, 106 + n * 6);
+        }
+        this.generalSMPTEMode = this.buffer.readUInt8(105);
+    }
+    write(): void {
+        throw new Error("not supported!");
+    }
+    length(): number {
+        return 154;
+    }
+    type(): number {
+        return TCNetMessageType.Time;
+    }
+}
+
 export class TCNetDataPacket extends TCNetPacket {
-    dataType: number;
+    dataType: TCNetDataPacketType;
     layer: number;
 
     read(): void {
@@ -259,10 +313,48 @@ export class TCNetDataPacket extends TCNetPacket {
         this.buffer.writeUInt8(this.layer, 25);
     }
     length(): number {
-        return 26;
+        return -1;
     }
     type(): number {
         return TCNetMessageType.Data;
+    }
+}
+
+export enum TCNetLayerSyncMaster {
+    Slave = 0,
+    Master = 1,
+}
+
+export class TCNetDataPacketMetrics extends TCNetDataPacket {
+    state: TCNetLayerStatus;
+    syncMaster: TCNetLayerSyncMaster;
+    beatMarker: number;
+    trackLength: number;
+    currentPosition: number;
+    speed: number;
+    beatNumber: number;
+    bpm: number;
+    pitchBend: number;
+    trackID: number;
+
+    read(): void {
+        this.state = this.buffer.readUInt8(27);
+        this.syncMaster = this.buffer.readUInt8(29);
+        this.beatMarker = this.buffer.readUInt8(31);
+        this.trackLength = this.buffer.readUInt32LE(32);
+        this.currentPosition = this.buffer.readUInt32LE(36);
+        this.speed = this.buffer.readUInt32LE(40);
+        this.beatNumber = this.buffer.readUInt32LE(57);
+        this.bpm = this.buffer.readUInt32LE(112);
+        this.pitchBend = this.buffer.readUInt16LE(116);
+        this.trackID = this.buffer.readUInt32LE(118);
+    }
+
+    write(): void {
+        throw new Error("not supported!");
+    }
+    length(): number {
+        return 122;
     }
 }
 
@@ -285,3 +377,33 @@ export class TCNetDataPacketMetadata extends TCNetDataPacket {
         return 548;
     }
 }
+
+export interface Constructable {
+    new (...args: any[]): any;
+}
+
+export const TCNetPackets: Record<TCNetMessageType, Constructable | null> = {
+    [TCNetMessageType.OptIn]: TCNetOptInPacket,
+    [TCNetMessageType.OptOut]: TCNetOptOutPacket,
+    [TCNetMessageType.Status]: TCNetStatusPacket,
+    [TCNetMessageType.TimeSync]: null, // not yet implemented
+    [TCNetMessageType.Error]: null, // not yet implemented
+    [TCNetMessageType.Request]: TCNetRequestPacket,
+    [TCNetMessageType.ApplicationData]: null, // not yet implemented
+    [TCNetMessageType.Control]: null, // not yet implemented
+    [TCNetMessageType.Text]: null, // not yet implemented
+    [TCNetMessageType.Keyboard]: null, // not yet implemented
+    [TCNetMessageType.Data]: TCNetDataPacket,
+    [TCNetMessageType.File]: null, // not yet implemented
+    [TCNetMessageType.Time]: TCNetTimePacket,
+};
+
+export const TCNetDataPackets: Record<TCNetDataPacketType, typeof TCNetDataPacket | null> = {
+    [TCNetDataPacketType.MetricsData]: TCNetDataPacketMetrics,
+    [TCNetDataPacketType.MetaData]: TCNetDataPacketMetadata,
+    [TCNetDataPacketType.BeatGridData]: null, // not yet implemented
+    [TCNetDataPacketType.CUEData]: null, // not yet implemented
+    [TCNetDataPacketType.SmallWaveFormData]: null, // not yet implemented
+    [TCNetDataPacketType.BigWaveFormData]: null, // not yet implemented
+    [TCNetDataPacketType.MixerData]: null, // not yet implemented
+};

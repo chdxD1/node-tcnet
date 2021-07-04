@@ -4,6 +4,7 @@ import * as nw from "./network";
 import { interfaceAddress } from "./utils";
 
 const TCNET_BROADCAST_PORT = 60000;
+const TCNET_TIMESTAMP_PORT = 60001;
 
 type STORED_RESOLVE = (value?: nw.TCNetDataPacket | PromiseLike<nw.TCNetDataPacket> | undefined) => void;
 
@@ -27,6 +28,7 @@ export class TCNetClient extends EventEmitter {
     private config: TCNetConfiguration;
     private broadcastSocket: Socket;
     private unicastSocket: Socket;
+    private timestampSocket: Socket;
     private server: RemoteInfo | null;
     private seq = 0;
     private uptime = 0;
@@ -74,6 +76,10 @@ export class TCNetClient extends EventEmitter {
         await this.bindSocket(this.broadcastSocket, TCNET_BROADCAST_PORT, this.config.broadcastAddress);
         this.broadcastSocket.setBroadcast(true);
 
+        this.timestampSocket = createSocket({ type: "udp4", reuseAddr: true }, this.receiveTimestamp.bind(this));
+        await this.bindSocket(this.timestampSocket, TCNET_TIMESTAMP_PORT, this.config.broadcastAddress);
+        this.timestampSocket.setBroadcast(true);
+
         this.unicastSocket = createSocket({ type: "udp4", reuseAddr: false }, this.receiveUnicast.bind(this));
         await this.bindSocket(this.unicastSocket, this.config.unicastPort, "0.0.0.0");
 
@@ -111,6 +117,34 @@ export class TCNetClient extends EventEmitter {
     }
 
     /**
+     * Parse a packet from a ManagementHeader
+     * @param header the received management header
+     * @returns the parsed packet
+     */
+    private parsePacket(header: nw.TCNetManagementHeader): nw.TCNetPacket | null {
+        const packetClass = nw.TCNetPackets[header.messageType];
+        if (packetClass !== null) {
+            const packet = new packetClass();
+
+            if (packet.length() !== -1 && packet.length() !== header.buffer.length) {
+                if (this.config.debug)
+                    console.log(
+                        `Packet has the wrong length (expected: ${packet.length()}, received: ${header.buffer.length})`,
+                        header,
+                    );
+                return null;
+            }
+
+            packet.buffer = header.buffer;
+            packet.header = header;
+            packet.read();
+
+            return packet;
+        }
+        return null;
+    }
+
+    /**
      * Callback method to receive datagrams on the broadcast socket
      *
      * @param msg datagram buffer
@@ -119,27 +153,12 @@ export class TCNetClient extends EventEmitter {
     private receiveBroadcast(msg: Buffer, rinfo: RemoteInfo): void {
         const mgmtHeader = new nw.TCNetManagementHeader(msg);
         mgmtHeader.read();
-
-        let packet: nw.TCNetPacket | null = null;
-
-        if (mgmtHeader.messageType == nw.TCNetMessageType.OptIn) {
-            packet = new nw.TCNetOptInPacket();
-        } else if (mgmtHeader.messageType == nw.TCNetMessageType.Status) {
-            packet = new nw.TCNetStatusPacket();
-        } else if (mgmtHeader.messageType == nw.TCNetMessageType.OptOut) {
-            packet = new nw.TCNetOptOutPacket();
-        } else {
-            if (this.config.debug) console.log("Unknown broadcast packet type: " + mgmtHeader.messageType);
-        }
+        const packet: nw.TCNetPacket | null = this.parsePacket(mgmtHeader);
 
         if (packet) {
-            packet.buffer = msg;
-            packet.header = mgmtHeader;
-            packet.read();
-
-            // We received an OptIn packet from a server
-            if (mgmtHeader.nodeType == nw.NodeType.Master) {
-                if (packet instanceof nw.TCNetOptOutPacket) {
+            if (packet instanceof nw.TCNetOptOutPacket) {
+                if (mgmtHeader.nodeType == nw.NodeType.Master) {
+                    // We received an OptIn packet from a server
                     if (this.config.debug) console.log("Received optout from current Master");
                     if (this.server?.address == rinfo.address && this.server?.port == packet.nodeListenerPort) {
                         this.server = null;
@@ -150,6 +169,8 @@ export class TCNetClient extends EventEmitter {
             if (this.connected) {
                 this.emit("broadcast", packet);
             }
+        } else {
+            if (this.config.debug) console.log("Unknown broadcast packet type: " + mgmtHeader.messageType);
         }
     }
 
@@ -162,24 +183,16 @@ export class TCNetClient extends EventEmitter {
     private receiveUnicast(msg: Buffer, rinfo: RemoteInfo): void {
         const mgmtHeader = new nw.TCNetManagementHeader(msg);
         mgmtHeader.read();
+        const packet = this.parsePacket(mgmtHeader);
 
-        if (mgmtHeader.messageType == nw.TCNetMessageType.Data) {
-            const dataPacketHeader = new nw.TCNetDataPacket();
-            dataPacketHeader.buffer = msg;
-            dataPacketHeader.header = mgmtHeader;
-            dataPacketHeader.read();
-
-            let dataPacket: nw.TCNetDataPacket | null = null;
-
-            if (dataPacketHeader.dataType == nw.TCNetDataPacketType.MetaData) {
-                dataPacket = new nw.TCNetDataPacketMetadata();
-            }
-
-            if (dataPacket) {
+        if (packet instanceof nw.TCNetDataPacket) {
+            const dataPacketClass = nw.TCNetDataPackets[packet.dataType];
+            if (dataPacketClass !== null) {
+                const dataPacket: nw.TCNetDataPacket = new dataPacketClass();
                 dataPacket.buffer = msg;
                 dataPacket.header = mgmtHeader;
-                dataPacket.dataType = dataPacketHeader.dataType;
-                dataPacket.layer = dataPacketHeader.layer;
+                dataPacket.dataType = packet.dataType;
+                dataPacket.layer = packet.layer;
                 dataPacket.read();
 
                 const pendingRequest = this.requests.get(`${dataPacket.dataType}-${dataPacket.layer}`);
@@ -187,15 +200,10 @@ export class TCNetClient extends EventEmitter {
                     pendingRequest(dataPacket);
                 }
             }
-        } else if (mgmtHeader.messageType == nw.TCNetMessageType.OptIn) {
+        } else if (packet instanceof nw.TCNetOptInPacket) {
             // Received OptIn directly via Unicast --> we are registered at the destination now.
-            const packet = new nw.TCNetOptInPacket();
-            packet.buffer = msg;
-            packet.header = mgmtHeader;
-            packet.read();
-
-            // Received OptIn from Master --> registered at Pro DJ Link Bridge or comparable tool
             if (mgmtHeader.nodeType == nw.NodeType.Master) {
+                // Received OptIn from Master --> registered at Pro DJ Link Bridge or comparable tool
                 this.server = rinfo;
                 this.server.port = packet.nodeListenerPort;
                 if (this.connectedHandler) {
@@ -208,6 +216,23 @@ export class TCNetClient extends EventEmitter {
         } else {
             if (this.config.debug) console.log("Unknown packet type: " + mgmtHeader.messageType);
         }
+    }
+
+    /**
+     * Callback method to receive datagrams on the timestamp socket
+     * @param msg datagram buffer
+     * @param rinfo remoteinfo
+     */
+    private receiveTimestamp(msg: Buffer, _rinfo: RemoteInfo): void {
+        const mgmtHeader = new nw.TCNetManagementHeader(msg);
+        mgmtHeader.read();
+        if (mgmtHeader.messageType !== nw.TCNetMessageType.Time) {
+            if (this.config.debug) console.log("Received non Time packet on Time port");
+            return;
+        }
+
+        const packet = this.parsePacket(mgmtHeader);
+        this.emit("time", packet);
     }
 
     /**

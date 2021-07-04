@@ -1,6 +1,13 @@
 import { TCNetClient, TCNetPacket } from ".";
 import { TCNetConfiguration } from "./tcnet";
-import { TCNetStatusPacket, TCNetDataPacketType, TCNetDataPacketMetadata, TCNetLayerStatus } from "./network";
+import {
+    TCNetStatusPacket,
+    TCNetDataPacketType,
+    TCNetDataPacketMetadata,
+    TCNetLayerStatus,
+    TCNetDataPacketMetrics,
+    TCNetLayerSyncMaster,
+} from "./network";
 import EventEmitter = require("events");
 import { assert } from "console";
 
@@ -83,14 +90,26 @@ export class PioneerDJTCClient extends EventEmitter {
     /**
      * Request track info of a specific layer
      * @param layer layer to query
+     * @returns track info of the layer
      */
     async trackInfo(layer: LayerIndex): Promise<TrackInfo> {
         const response = <TCNetDataPacketMetadata>await this.client().requestData(TCNetDataPacketType.MetaData, layer);
         return {
-            id: response.trackID,
-            artist: response.trackArtist,
-            title: response.trackTitle,
-            key: response.trackKey,
+            ...response,
+        };
+    }
+
+    /**
+     * Request metrics of a specific layer
+     * @param layer layer to query
+     * @returns metrics of the layer
+     */
+    async layerMetrics(layer: LayerIndex): Promise<LayerMetrics> {
+        const response = <TCNetDataPacketMetrics>(
+            await this.client().requestData(TCNetDataPacketType.MetricsData, layer)
+        );
+        return {
+            ...response,
         };
     }
 }
@@ -191,8 +210,21 @@ class PioneerDJState {
  * Track Info type
  */
 export type TrackInfo = {
-    id: number;
-    artist: string;
-    title: string;
-    key: number;
+    trackID: number;
+    trackArtist: string;
+    trackTitle: string;
+    trackKey: number;
+};
+
+export type LayerMetrics = {
+    state: TCNetLayerStatus;
+    syncMaster: TCNetLayerSyncMaster;
+    beatMarker: number;
+    trackLength: number;
+    currentPosition: number;
+    speed: number;
+    beatNumber: number;
+    bpm: number;
+    pitchBend: number;
+    trackID: number;
 };
