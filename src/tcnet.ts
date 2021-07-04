@@ -1,7 +1,7 @@
 import { Socket, createSocket, RemoteInfo } from "dgram";
-import * as broadcastAddress from "broadcast-address";
 import EventEmitter = require("events");
 import * as nw from "./network";
+import { interfaceAddress } from "./utils";
 
 const TCNET_BROADCAST_PORT = 60000;
 
@@ -44,7 +44,7 @@ export class TCNetClient extends EventEmitter {
         this.config = config || new TCNetConfiguration();
 
         if (this.config.broadcastInterface && this.config.broadcastAddress == "255.255.255.255") {
-            this.config.broadcastAddress = broadcastAddress(this.config.broadcastInterface);
+            this.config.broadcastAddress = interfaceAddress(this.config.broadcastInterface);
         }
     }
 
