@@ -347,7 +347,7 @@ export class TCNetDataPacketMetrics extends TCNetDataPacket {
         this.currentPosition = this.buffer.readUInt32LE(36);
         this.speed = this.buffer.readUInt32LE(40);
         this.beatNumber = this.buffer.readUInt32LE(57);
-        this.bpm = this.buffer.readUInt32LE(112);
+        this.bpm = this.buffer.readUInt32LE(112)/100;
         this.pitchBend = this.buffer.readUInt16LE(116);
         this.trackID = this.buffer.readUInt32LE(118);
     }
