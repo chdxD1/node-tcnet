@@ -6,7 +6,7 @@
         "sourceMap": true,
         "declaration": true,
         "strictPropertyInitialization": false,
-        // "strict": true,
+        "strict": true,
         // Module resolution
         "moduleResolution": "node",
         // Type checking
