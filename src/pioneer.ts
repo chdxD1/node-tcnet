@@ -1,4 +1,4 @@
-import { TCNetClient, TCNetPacket } from ".";
+import { TCNetClient, TCNetPacket } from "./";
 import { TCNetConfiguration } from "./tcnet";
 import {
     TCNetStatusPacket,
