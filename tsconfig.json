@@ -5,6 +5,7 @@
         "importHelpers": true,
         "sourceMap": true,
         "declaration": true,
+        "strictPropertyInitialization": false,
         // "strict": true,
         // Module resolution
         "moduleResolution": "node",
