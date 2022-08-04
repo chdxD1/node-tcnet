@@ -5,12 +5,13 @@
         "importHelpers": true,
         "sourceMap": true,
         "declaration": true,
-
+        "strict": true,
         // Module resolution
         "moduleResolution": "node",
-
         // Type checking
-        "lib": ["es2017"],
+        "lib": [
+            "es2017",
+        ],
         "alwaysStrict": true,
         "forceConsistentCasingInFileNames": true,
         "noFallthroughCasesInSwitch": true,
@@ -19,11 +20,14 @@
         "noImplicitThis": true,
         "strictNullChecks": true,
         "skipLibCheck": true,
-
         "module": "CommonJS",
-        "types": ["node"],
+        "types": [
+            "node"
+        ],
         "outDir": "./dist"
     },
     "compileOnSave": true,
-    "include": ["src/**/*"]
+    "include": [
+        "src/**/*",
+    ]
 }
