@@ -272,8 +272,9 @@ export class TCNetTimePacket extends TCNetPacket {
     layerTotalTime: number[] = new Array(8);
     layerBeatmarker: number[] = new Array(8);
     layerState: TCNetLayerStatus[] = new Array(8);
-    generalSMPTEMode: number;
+    generalSMPTEMode: number;   
     layerTimecode: TCNetTimecode[] = new Array(8);
+    
 
     read(): void {
         for (let n = 0; n < 8; n++) {

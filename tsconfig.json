@@ -5,7 +5,7 @@
         "importHelpers": true,
         "sourceMap": true,
         "declaration": true,
-        "strict": true,
+        // "strict": true,
         // Module resolution
         "moduleResolution": "node",
         // Type checking
