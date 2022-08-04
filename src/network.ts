@@ -1,4 +1,5 @@
 import { assert } from "console";
+import { generateKey } from "crypto";
 
 export enum TCNetMessageType {
     OptIn = 2,
@@ -366,8 +367,8 @@ export class TCNetDataPacketMetadata extends TCNetDataPacket {
     trackID: number;
 
     read(): void {
-        this.trackArtist = this.buffer.slice(29, 285).toString("ascii").replace(/\0.*$/g, "");
-        this.trackTitle = this.buffer.slice(285, 541).toString("ascii").replace(/\0.*$/g, "");
+        this.trackArtist = this.buffer.slice(29, 285).toString("ascii").replace(/\x00/g, "").trimEnd();
+        this.trackTitle = this.buffer.slice(285, 541).toString("ascii").replace(/\x00/g, "").trimEnd();
         this.trackKey = this.buffer.readUInt16LE(541);
         this.trackID = this.buffer.readUInt32LE(543);
     }
