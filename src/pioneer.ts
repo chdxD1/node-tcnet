@@ -4,12 +4,14 @@ import {
     TCNetStatusPacket,
     TCNetDataPacketType,
     TCNetDataPacketMetadata,
+    TCNetDataPacketBeatGridData,
     TCNetLayerStatus,
     TCNetDataPacketMetrics,
     TCNetLayerSyncMaster,
 } from "./network";
 import EventEmitter = require("events");
 import { assert } from "console";
+
 
 /**
  * High level implementation of TCNet for PioneerDJ equipment
@@ -44,8 +46,9 @@ export class PioneerDJTCClient extends EventEmitter {
      * Disconnects from TCNet network
      */
     disconnect(): void {
-        this.tcnet.disconnect();
         this.removeAllListeners();
+        this.tcnet.disconnect();
+        
     }
 
     /**
@@ -93,7 +96,9 @@ export class PioneerDJTCClient extends EventEmitter {
      * @returns track info of the layer
      */
     async trackInfo(layer: LayerIndex): Promise<TrackInfo> {
-        const response = <TCNetDataPacketMetadata>await this.client().requestData(TCNetDataPacketType.MetaData, layer);
+        const response = <TCNetDataPacketMetadata>(
+            await this.client().requestData(TCNetDataPacketType.MetaData, layer)
+        );
         return {
             ...response,
         };
@@ -112,6 +117,21 @@ export class PioneerDJTCClient extends EventEmitter {
             ...response,
         };
     }
+
+        /**
+     * Request beatgrid of a specific layer
+     * @param layer layer to query
+     * @returns metrics of the layer
+     */
+    async beatGridData(layer: LayerIndex): Promise<beatGridData> { 
+        const response = <TCNetDataPacketBeatGridData>(
+            await this.client().requestData(TCNetDataPacketType.BeatGridData, layer)
+        );
+        return {
+            ...response,
+        };
+    }
+
 }
 
 /**
@@ -227,4 +247,15 @@ export type LayerMetrics = {
     bpm: number;
     pitchBend: number;
     trackID: number;
+};
+
+export type beatGridData = {
+    dataSize : number;
+    totalPacket : number;
+    packetNo: number;
+    dataClusterSize: number;
+    beatNumber: number;
+    beatType: number;
+    beatTypeTimestamp: number;    
+    packetNumber: number;
 };

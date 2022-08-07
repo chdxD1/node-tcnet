@@ -366,7 +366,7 @@ export class TCNetDataPacketMetadata extends TCNetDataPacket {
     trackKey: number;
     trackID: number;
 
-    read(): void {
+    read(): void {        
         this.trackArtist = this.buffer.slice(29, 285).toString("ascii").replace(/\x00/g, "").trimEnd();
         this.trackTitle = this.buffer.slice(285, 541).toString("ascii").replace(/\x00/g, "").trimEnd();
         this.trackKey = this.buffer.readUInt16LE(541);
@@ -378,7 +378,42 @@ export class TCNetDataPacketMetadata extends TCNetDataPacket {
     length(): number {
         return 548;
     }
+} 
+
+export class TCNetDataPacketBeatGridData extends TCNetDataPacket{
+    dataSize : number;
+    totalPacket : number;
+    packetNo: number;
+    dataClusterSize: number;
+    beatNumber: number;
+    beatType: number;
+    beatTypeTimestamp: number;    
+    packetNumber: number;
+    //offset: number; 
+
+    read(): void {
+               
+        //this.packetNumber = this.buffer.readUInt16LE(34);
+        //console.log(this.packetNumber);
+        //console.log(this.buffer);
+        //this.offset = ((this.beatNumber * 8) - (this.packetNumber * 2400)); // ((this.beatNumber * 8) - (this.packetNumber * 2400));
+        
+        this.dataSize = this.buffer.readUInt16LE(26);
+        this.totalPacket = this.buffer.readUInt16LE(26);
+        
+        this.beatNumber = this.buffer.readUInt16LE(42);
+        this.beatType = this.buffer.readUInt16LE(44); // (20=Down Beat, 10=Upbeat)
+        this.beatTypeTimestamp = this.buffer.readUInt16LE(46);        
+
+    }
+    write(): void {
+        throw new Error("not supported!");
+    }
+    length(): number {
+        return 2442;
+    }
 }
+
 
 export interface Constructable {
     new (...args: any[]): any;
@@ -403,7 +438,7 @@ export const TCNetPackets: Record<TCNetMessageType, Constructable | null> = {
 export const TCNetDataPackets: Record<TCNetDataPacketType, typeof TCNetDataPacket | null> = {
     [TCNetDataPacketType.MetricsData]: TCNetDataPacketMetrics,
     [TCNetDataPacketType.MetaData]: TCNetDataPacketMetadata,
-    [TCNetDataPacketType.BeatGridData]: null, // not yet implemented
+    [TCNetDataPacketType.BeatGridData]: TCNetDataPacketBeatGridData, // not yet implemented
     [TCNetDataPacketType.CUEData]: null, // not yet implemented
     [TCNetDataPacketType.SmallWaveFormData]: null, // not yet implemented
     [TCNetDataPacketType.BigWaveFormData]: null, // not yet implemented
