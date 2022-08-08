@@ -18,7 +18,7 @@ export class TCNetConfiguration {
     appName = "NODE-TCNET";
     broadcastInterface: string | null = null;
     broadcastAddress = "255.255.255.255";
-    requestTimeout = 2000;
+    requestTimeout = 200000;
     debug = true;
 }
 
@@ -93,13 +93,13 @@ export class TCNetClient extends EventEmitter {
     /**
      * Disconnects from TCNet network
      */
-    public disconnect(): void {        
-        clearInterval(this.announcementInterval);        
+    public disconnect(): void {
+        clearInterval(this.announcementInterval);
         this.optOut();
         this.broadcastSocket.close();
         this.unicastSocket.close();
         this.timestampSocket.close();
-        this.removeAllListeners();     
+        this.removeAllListeners();
         //this.connected = false;
     }
 
@@ -186,7 +186,7 @@ export class TCNetClient extends EventEmitter {
                 this.emit("broadcast", packet);
             }
         } else {
-            if (this.config.debug) console.log("Unknown broadcast packet type: " + mgmtHeader.messageType );
+            if (this.config.debug) console.log("Unknown broadcast packet type: " + mgmtHeader.messageType);
         }
     }
 
@@ -200,6 +200,7 @@ export class TCNetClient extends EventEmitter {
         const mgmtHeader = new nw.TCNetManagementHeader(msg);
         mgmtHeader.read();
         const packet = this.parsePacket(mgmtHeader);
+        if (this.config.debug) console.log(mgmtHeader.messageType);
 
         if (packet instanceof nw.TCNetDataPacket) {
             const dataPacketClass = nw.TCNetDataPackets[packet.dataType];
@@ -230,7 +231,7 @@ export class TCNetClient extends EventEmitter {
                 }
             }
         } else {
-            if (this.config.debug) console.log("Unknown packet type: " + mgmtHeader.messageType + mgmtHeader.nodeOptions + mgmtHeader.buffer.toString());
+            if (this.config.debug) console.log("Unknown packet type: " + mgmtHeader.messageType + " --- " + mgmtHeader.nodeOptions + " --- " + mgmtHeader.buffer.toString());
         }
     }
 
