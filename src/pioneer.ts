@@ -1,15 +1,19 @@
-import { TCNetClient, TCNetPacket } from ".";
+import { TCNetClient, TCNetPacket } from "./";
 import { TCNetConfiguration } from "./tcnet";
 import {
     TCNetStatusPacket,
     TCNetDataPacketType,
     TCNetDataPacketMetadata,
+    TCNetDataPacketBeatGridData,
     TCNetLayerStatus,
     TCNetDataPacketMetrics,
     TCNetLayerSyncMaster,
+    TCNetDataPacketMixerData,
 } from "./network";
 import EventEmitter = require("events");
 import { assert } from "console";
+
+
 
 /**
  * High level implementation of TCNet for PioneerDJ equipment
@@ -44,8 +48,9 @@ export class PioneerDJTCClient extends EventEmitter {
      * Disconnects from TCNet network
      */
     disconnect(): void {
-        this.tcnet.disconnect();
         this.removeAllListeners();
+        this.tcnet.disconnect();
+
     }
 
     /**
@@ -93,7 +98,9 @@ export class PioneerDJTCClient extends EventEmitter {
      * @returns track info of the layer
      */
     async trackInfo(layer: LayerIndex): Promise<TrackInfo> {
-        const response = <TCNetDataPacketMetadata>await this.client().requestData(TCNetDataPacketType.MetaData, layer);
+        const response = <TCNetDataPacketMetadata>(
+            await this.client().requestData(TCNetDataPacketType.MetaData, layer)
+        );
         return {
             ...response,
         };
@@ -112,6 +119,36 @@ export class PioneerDJTCClient extends EventEmitter {
             ...response,
         };
     }
+
+    /**
+     * Request metrics of a specific layer
+     * @param layer layer to query
+     * @returns metrics of the layer
+     */
+    async mixerData(): Promise<MixerData> {
+        const response = <TCNetDataPacketMixerData>(
+            await this.client().requestData(TCNetDataPacketType.MixerData, 2)
+        );
+        return {
+            ...response,
+        };
+    }
+
+
+    /**
+ * Request beatgrid of a specific layer
+ * @param layer layer to query
+ * @returns metrics of the layer
+ */
+    async beatGridData(layer: LayerIndex): Promise<BeatGridData> {
+        const response = <TCNetDataPacketBeatGridData>(
+            await this.client().requestData(TCNetDataPacketType.BeatGridData, layer)
+        );
+        return {
+            ...response,
+        };
+    }
+
 }
 
 /**
@@ -213,7 +250,7 @@ export type TrackInfo = {
     trackID: number;
     trackArtist: string;
     trackTitle: string;
-    trackKey: number;
+    trackKey: string;
 };
 
 export type LayerMetrics = {
@@ -228,3 +265,68 @@ export type LayerMetrics = {
     pitchBend: number;
     trackID: number;
 };
+
+export type BeatGridData = {
+    dataSize: number;
+    totalPacket: number;
+    packetNo: number;
+    dataClusterSize: number;
+    beatNumber: number;
+    beatType: number;
+    beatTypeTimestamp: number;
+    packetNumber: number;
+};
+
+export type MixerData = {
+
+    mixerId: number;
+    mixerType: number;
+    mixerName: string;
+    micEQHi: number;
+    micEQLow: number;
+    masterAudioLevel: number;
+    masterFaderLevel: number;
+    linkCueA: number;
+    linkCueB: number;
+    masterFilter: number;
+    masterCueA: number;
+    masterCueB: number;
+    masterIsolatorOnOff: number;
+    masterIsolatorHi: number;
+    masterIsolatorMid: number;
+    masterIsolatorLow: number;
+    filterHPF: number;
+    filterLPF: number;
+    filterRes: number;
+    sendFXEffect: number;
+    sendFXExt1: number;
+    sendFXExt2: number;
+    sendFXMasterMix: number;
+    sendFXSizeFeedback: number;
+    sendFXTime: number;
+    sendFXHPF: number;
+    sendFXLevel: number;
+    sendReturn3SourceSelect: number;
+    sendReturn3Type: number;
+    sendReturn3OnOff: number;
+    sendReturn3Level: number;
+    channelFaderCurve: number;
+    crossFaderCurve: number;
+    crossFader: number;
+    beatFxOnOff: number;
+    beatFxLevelDepth: number;
+    beatFxChannelSelect: number;
+    beatFxSelect: number;
+    beatFxFreqHi: number;
+    beatFxFreqMid: number;
+    beatFxFreqLow: number;
+    headphonesPreEq: number;
+    headphonesALevel: number;
+    headphonesAMix: number;
+    headphonesBLevel: number;
+    headphonesBMix: number;
+    boothLevel: number;
+    boothEqHi: number;
+    boothEqLow: number;
+
+}

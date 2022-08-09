@@ -1,4 +1,5 @@
 import { assert } from "console";
+import { generateKey } from "crypto";
 
 export enum TCNetMessageType {
     OptIn = 2,
@@ -243,6 +244,29 @@ export class TCNetRequestPacket extends TCNetPacket {
     }
 }
 
+export class TCNetApplicationData extends TCNetPacket {
+    dataType: number;
+    layer: number;
+
+    read(): void {
+        this.dataType = this.buffer.readUInt8(24);
+        this.layer = this.buffer.readUInt8(25);
+    }
+    write(): void {
+        assert(0 <= this.dataType && this.dataType <= 255);
+        assert(0 <= this.layer && this.layer <= 255);
+
+        this.buffer.writeUInt8(this.dataType, 24);
+        this.buffer.writeUInt8(this.layer, 25);
+    }
+    length(): number {
+        return 62;
+    }
+    type(): number {
+        return TCNetMessageType.ApplicationData;
+    }
+}
+
 export enum TCNetTimecodeState {
     Stopped = 0,
     Running = 1,
@@ -274,6 +298,7 @@ export class TCNetTimePacket extends TCNetPacket {
     layerState: TCNetLayerStatus[] = new Array(8);
     generalSMPTEMode: number;
     layerTimecode: TCNetTimecode[] = new Array(8);
+
 
     read(): void {
         for (let n = 0; n < 8; n++) {
@@ -338,15 +363,15 @@ export class TCNetDataPacketMetrics extends TCNetDataPacket {
     trackID: number;
 
     read(): void {
-        this.state = this.buffer.readUInt8(27);
+        this.state = this.buffer.readUInt8(27); // 1 byte  0-FF*
         this.syncMaster = this.buffer.readUInt8(29);
         this.beatMarker = this.buffer.readUInt8(31);
-        this.trackLength = this.buffer.readUInt32LE(32);
+        this.trackLength = this.buffer.readUInt32LE(32); // 0-0x5265C00 (LITTLE ENDIAN)
         this.currentPosition = this.buffer.readUInt32LE(36);
         this.speed = this.buffer.readUInt32LE(40);
         this.beatNumber = this.buffer.readUInt32LE(57);
-        this.bpm = this.buffer.readUInt32LE(112);
-        this.pitchBend = this.buffer.readUInt16LE(116);
+        this.bpm = this.buffer.readUInt32LE(112) / 100;
+        this.pitchBend = this.buffer.readUInt16LE(116); // 2 byte (16-BIT) 0-FFFF* (LITTLE ENDIAN)
         this.trackID = this.buffer.readUInt32LE(118);
     }
 
@@ -361,13 +386,13 @@ export class TCNetDataPacketMetrics extends TCNetDataPacket {
 export class TCNetDataPacketMetadata extends TCNetDataPacket {
     trackArtist: string;
     trackTitle: string;
-    trackKey: number;
+    trackKey: string;
     trackID: number;
 
     read(): void {
-        this.trackArtist = this.buffer.slice(29, 285).toString("ascii").replace(/\0.*$/g, "");
-        this.trackTitle = this.buffer.slice(285, 541).toString("ascii").replace(/\0.*$/g, "");
-        this.trackKey = this.buffer.readUInt16LE(541);
+        this.trackArtist = this.buffer.slice(29, 285).toString("ascii").replace(/\x00/g, "").trimEnd();
+        this.trackTitle = this.buffer.slice(285, 541).toString("ascii").replace(/\x00/g, "").trimEnd();
+        this.trackKey = this.buffer.slice(541, 566).toString("ascii").replace(/\x00/g, "");
         this.trackID = this.buffer.readUInt32LE(543);
     }
     write(): void {
@@ -378,8 +403,167 @@ export class TCNetDataPacketMetadata extends TCNetDataPacket {
     }
 }
 
+export class TCNetDataPacketBeatGridData extends TCNetDataPacket {
+    dataSize: number;
+    totalPacket: number;
+    packetNo: number;
+    dataClusterSize: number;
+    beatNumber: number;
+    beatType: number;
+    beatTypeTimestamp: number;
+    packetNumber: number;
+    //offset: number; 
+
+    read(): void {
+
+        //this.packetNumber = this.buffer.readUInt16LE(34);
+        //console.log(this.packetNumber);
+        //console.log(this.buffer);
+        //this.offset = ((this.beatNumber * 8) - (this.packetNumber * 2400)); // ((this.beatNumber * 8) - (this.packetNumber * 2400));
+
+        this.dataSize = this.buffer.readUInt32LE(26);
+        this.totalPacket = this.buffer.readUInt32LE(30);
+
+        this.beatNumber = this.buffer.readUInt16LE(42);
+        this.beatType = this.buffer.readUInt8(44); // (20=Down Beat, 10=Upbeat)
+        this.beatTypeTimestamp = this.buffer.readUInt16LE(46);
+
+        console.log(this.dataSize + "datasize -- ");
+        console.log(this.totalPacket + "totalPacket --");
+        console.log(this.beatNumber + "beatNumber --");
+
+    }
+    write(): void {
+        throw new Error("not supported!");
+    }
+
+    length(): number {
+        return 2442;
+    }
+}
+
+export class TCNetDataPacketMixerData extends TCNetDataPacket {
+
+    mixerId: number;
+    mixerType: number;
+    mixerName: string;
+    micEQHi: number;
+    micEQLow: number;
+    masterAudioLevel: number;
+    masterFaderLevel: number;
+    linkCueA: number;
+    linkCueB: number;
+    masterFilter: number;
+    masterCueA: number;
+    masterCueB: number;
+    masterIsolatorOnOff: number;
+    masterIsolatorHi: number;
+    masterIsolatorMid: number;
+    masterIsolatorLow: number;
+    filterHPF: number;
+    filterLPF: number;
+    filterRes: number;
+    sendFXEffect: number;
+    sendFXExt1: number;
+    sendFXExt2: number;
+    sendFXMasterMix: number;
+    sendFXSizeFeedback: number;
+    sendFXTime: number;
+    sendFXHPF: number;
+    sendFXLevel: number;
+    sendReturn3SourceSelect: number;
+    sendReturn3Type: number;
+    sendReturn3OnOff: number;
+    sendReturn3Level: number;
+    channelFaderCurve: number;
+    crossFaderCurve: number;
+    crossFader: number;
+    beatFxOnOff: number;
+    beatFxLevelDepth: number;
+    beatFxChannelSelect: number;
+    beatFxSelect: number;
+    beatFxFreqHi: number;
+    beatFxFreqMid: number;
+    beatFxFreqLow: number;
+    headphonesPreEq: number;
+    headphonesALevel: number;
+    headphonesAMix: number;
+    headphonesBLevel: number;
+    headphonesBMix: number;
+    boothLevel: number;
+    boothEqHi: number;
+    boothEqLow: number;
+
+    read(): void {
+
+        this.mixerId = this.buffer.readUInt8(25);
+        this.mixerType = this.buffer.readUInt8(26);
+        this.mixerName = this.buffer.slice(27, 59).toString("ascii").replace(/\x00/g, "").trimEnd();
+
+        this.micEQHi = this.buffer.readUInt8(59);
+        this.micEQLow = this.buffer.readUInt8(60);
+        this.masterAudioLevel = this.buffer.readUInt8(61);
+        this.masterFaderLevel = this.buffer.readUInt8(62);
+        this.linkCueA = this.buffer.readUInt8(67);
+        this.linkCueB = this.buffer.readUInt8(68);
+
+        this.masterFilter = this.buffer.readUInt8(69); // nice
+        this.masterCueA = this.buffer.readUInt8(71);
+        this.masterCueB = this.buffer.readUInt8(72);
+        this.masterIsolatorOnOff = this.buffer.readUInt8(74);
+        this.masterIsolatorHi = this.buffer.readUInt8(75);
+        this.masterIsolatorMid = this.buffer.readUInt8(76);
+        this.masterIsolatorLow = this.buffer.readUInt8(77);
+
+        this.filterHPF = this.buffer.readUInt8(79);
+        this.filterLPF = this.buffer.readUInt8(80);
+        this.filterRes = this.buffer.readUInt8(81);
+
+        this.sendFXEffect = this.buffer.readUInt8(84);
+        this.sendFXExt1 = this.buffer.readUInt8(85);
+        this.sendFXExt2 = this.buffer.readUInt8(86);
+        this.sendFXMasterMix = this.buffer.readUInt8(87);
+        this.sendFXSizeFeedback = this.buffer.readUInt8(88);
+        this.sendFXTime = this.buffer.readUInt8(89);
+        this.sendFXHPF = this.buffer.readUInt8(90);
+        this.sendFXLevel = this.buffer.readUInt8(91);
+        this.sendReturn3SourceSelect = this.buffer.readUInt8(92);
+        this.sendReturn3Type = this.buffer.readUInt8(93);
+        this.sendReturn3OnOff = this.buffer.readUInt8(94);
+        this.sendReturn3Level = this.buffer.readUInt8(95);
+        this.channelFaderCurve = this.buffer.readUInt8(97);
+        this.crossFaderCurve = this.buffer.readUInt8(98);
+        this.crossFader = this.buffer.readUInt8(99);
+        this.beatFxOnOff = this.buffer.readUInt8(100);
+        this.beatFxLevelDepth = this.buffer.readUInt8(101);
+
+        this.beatFxChannelSelect = this.buffer.readUInt8(102);
+        this.beatFxSelect = this.buffer.readUInt8(103);
+        this.beatFxFreqHi = this.buffer.readUInt8(14);
+        this.beatFxFreqMid = this.buffer.readUInt8(105);
+        this.beatFxFreqLow = this.buffer.readUInt8(106);
+        this.headphonesPreEq = this.buffer.readUInt8(107);
+        this.headphonesALevel = this.buffer.readUInt8(108);
+        this.headphonesAMix = this.buffer.readUInt8(109);
+        this.headphonesBLevel = this.buffer.readUInt8(110);
+        this.headphonesBMix = this.buffer.readUInt8(111);
+        this.boothLevel = this.buffer.readUInt8(112);
+        this.boothEqHi = this.buffer.readUInt8(113);
+        this.boothEqLow = this.buffer.readUInt8(114);
+
+    }
+    write(): void {
+        throw new Error("not supported!");
+    }
+    length(): number {
+        return 270;
+    }
+}
+
+
+
 export interface Constructable {
-    new (...args: any[]): any;
+    new(...args: any[]): any;
 }
 
 export const TCNetPackets: Record<TCNetMessageType, Constructable | null> = {
@@ -389,7 +573,7 @@ export const TCNetPackets: Record<TCNetMessageType, Constructable | null> = {
     [TCNetMessageType.TimeSync]: null, // not yet implemented
     [TCNetMessageType.Error]: null, // not yet implemented
     [TCNetMessageType.Request]: TCNetRequestPacket,
-    [TCNetMessageType.ApplicationData]: null, // not yet implemented
+    [TCNetMessageType.ApplicationData]: TCNetApplicationData, // not yet implemented
     [TCNetMessageType.Control]: null, // not yet implemented
     [TCNetMessageType.Text]: null, // not yet implemented
     [TCNetMessageType.Keyboard]: null, // not yet implemented
@@ -401,9 +585,9 @@ export const TCNetPackets: Record<TCNetMessageType, Constructable | null> = {
 export const TCNetDataPackets: Record<TCNetDataPacketType, typeof TCNetDataPacket | null> = {
     [TCNetDataPacketType.MetricsData]: TCNetDataPacketMetrics,
     [TCNetDataPacketType.MetaData]: TCNetDataPacketMetadata,
-    [TCNetDataPacketType.BeatGridData]: null, // not yet implemented
+    [TCNetDataPacketType.BeatGridData]: TCNetDataPacketBeatGridData, // not yet implemented
     [TCNetDataPacketType.CUEData]: null, // not yet implemented
     [TCNetDataPacketType.SmallWaveFormData]: null, // not yet implemented
     [TCNetDataPacketType.BigWaveFormData]: null, // not yet implemented
-    [TCNetDataPacketType.MixerData]: null, // not yet implemented
+    [TCNetDataPacketType.MixerData]: TCNetDataPacketMixerData, // not yet implemented
 };

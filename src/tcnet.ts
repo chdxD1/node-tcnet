@@ -1,15 +1,16 @@
 import { Socket, createSocket, RemoteInfo } from "dgram";
 import EventEmitter = require("events");
+import { buffer } from "stream/consumers";
 import * as nw from "./network";
 import { interfaceAddress } from "./utils";
 
 const TCNET_BROADCAST_PORT = 60000;
 const TCNET_TIMESTAMP_PORT = 60001;
 
-type STORED_RESOLVE = (value?: nw.TCNetDataPacket | PromiseLike<nw.TCNetDataPacket> | undefined) => void;
+type STORED_RESOLVE = (value?: nw.TCNetDataPacket | PromiseLike<nw.TCNetDataPacket> | any) => void; //any was undefined
 
 export class TCNetConfiguration {
-    unicastPort = 65032;
+    unicastPort = 65032; // 65032
     applicationCode = 0xffff;
     nodeId = Math.floor(Math.random() * 0xffff);
     nodeName = "TCNET.JS";
@@ -17,8 +18,8 @@ export class TCNetConfiguration {
     appName = "NODE-TCNET";
     broadcastInterface: string | null = null;
     broadcastAddress = "255.255.255.255";
-    requestTimeout = 2000;
-    debug = false;
+    requestTimeout = 200000;
+    debug = true;
 }
 
 /**
@@ -94,11 +95,26 @@ export class TCNetClient extends EventEmitter {
      */
     public disconnect(): void {
         clearInterval(this.announcementInterval);
+        this.optOut();
         this.broadcastSocket.close();
         this.unicastSocket.close();
+        this.timestampSocket.close();
         this.removeAllListeners();
-        this.connected = false;
+        //this.connected = false;
     }
+
+
+    private async optOut(): Promise<void> {
+        const optOutPacket = new nw.TCNetOptOutPacket();
+
+        await this.broadcastPacket(optOutPacket);
+        if (this.server) {
+            await this.sendServer(optOutPacket);
+        }
+    }
+
+
+
 
     /**
      * Waiting for unicast from a master
@@ -184,6 +200,7 @@ export class TCNetClient extends EventEmitter {
         const mgmtHeader = new nw.TCNetManagementHeader(msg);
         mgmtHeader.read();
         const packet = this.parsePacket(mgmtHeader);
+        if (this.config.debug) console.log(mgmtHeader.messageType);
 
         if (packet instanceof nw.TCNetDataPacket) {
             const dataPacketClass = nw.TCNetDataPackets[packet.dataType];
@@ -214,7 +231,7 @@ export class TCNetClient extends EventEmitter {
                 }
             }
         } else {
-            if (this.config.debug) console.log("Unknown packet type: " + mgmtHeader.messageType);
+            if (this.config.debug) console.log("Unknown packet type: " + mgmtHeader.messageType + " --- " + mgmtHeader.nodeOptions + " --- " + mgmtHeader.buffer.toString());
         }
     }
 
@@ -248,8 +265,8 @@ export class TCNetClient extends EventEmitter {
         packet.header.messageType = packet.type();
         packet.header.nodeName = this.config.nodeName;
         packet.header.seq = this.seq = (this.seq + 1) % 255;
-        packet.header.nodeType = 0x04;
-        packet.header.nodeOptions = 0;
+        packet.header.nodeType = 0x04; //0x04
+        packet.header.nodeOptions = 1;
         packet.header.timestamp = 0;
     }
 
